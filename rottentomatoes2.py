@@ -5,10 +5,10 @@
 # RottenTomatoesRating
 # Laszlo Szathmary, 2011 (jabba.laci@gmail.com)
 #
-# Project's home page: 
+# Project's home page:
 # https://pythonadventures.wordpress.com/2011/03/26/get-the-rottentomatoes-rating-of-a-movie/
 #
-# Version: 0.2 
+# Version: 0.2
 # Date:    2011-03-29 (yyyy-mm-dd)
 #
 # This free software is copyleft licensed under the same terms as Python, or,
@@ -25,7 +25,7 @@ from BeautifulSoup import BeautifulSoup
 class MyOpener(urllib.FancyURLopener):
     """Tricking web servers."""
     version = 'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.15) Gecko/20110303 Firefox/3.6.15'
-    
+
 class RottenTomatoesRating:
     """Get the rating of a movie."""
     # title of the movie
@@ -38,25 +38,26 @@ class RottenTomatoesRating:
     audience = None
     # Did we find a result?
     found = False
-    
+
     # for fetching webpages
     myopener = MyOpener()
     # Should we search and take the first hit?
     search = True
-    
+
     # constant
     BASE_URL = 'http://www.rottentomatoes.com'
     SEARCH_URL = '%s/search/full_search.php?search=' % BASE_URL
-    
-    def __init__(self, title, search=True):
+
+    def __init__(self, title, search=True, use_imdb=True):
         self.title = title
         self.search = search
+        self.imdb = use_imdb
         self._process()
-        
+
     def _search_movie(self):
         """Use RT's own search and return the first hit."""
         movie_url = ""
-        
+
         url = self.SEARCH_URL + self.title
         page = self.myopener.open(url)
         result = re.search(r'(/m/.*)', page.geturl())
@@ -71,20 +72,23 @@ class RottenTomatoesRating:
                 div = ul.find('div', {'class' : 'media_block_content'})
                 if div:
                     movie_url = div.find('a', href=True)['href']
-                
+
         return urlparse.urljoin( self.BASE_URL, movie_url )
-        
+
     def _process(self):
         """Start the work."""
-        
-        # if search option is off, i.e. try to locate the movie directly 
+
+        # if search option is off, i.e. try to locate the movie directly
         if not self.search:
             movie = '_'.join(self.title.split())
-            
-            url = "%s/m/%s" % (self.BASE_URL, movie)
+
+            if self.imdb:
+                url = "%s/alias?type=imdbid&s=%s" % (self.BASE_URL, self.title)
+            else:
+                url = "%s/m/%s" % (self.BASE_URL, movie)
             soup = BeautifulSoup(self.myopener.open(url).read())
             if soup.find('title').contents[0] == "Page Not Found":
-                url = self._search_movie()                
+                url = self._search_movie()
         else:
             # if search option is on => use RT's own search
             url = self._search_movie()
@@ -95,10 +99,10 @@ class RottenTomatoesRating:
             self.title = soup.find('meta', {'property' : 'og:title'})['content']
             if self.title:
                 self.found = True
-            
+
             self.tomatometer = soup.find('span', {'id' : 'all-critics-meter'}).contents[0]
             self.audience = soup.find('span', {'class' : 'meter popcorn numeric '}).contents[0]
-            
+
             if self.tomatometer.isdigit():
                 self.tomatometer += "%"
             if self.audience.isdigit():
